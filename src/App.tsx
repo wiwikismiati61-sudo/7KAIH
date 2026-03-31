@@ -315,7 +315,7 @@ export default function App() {
                   href={selectedLink.url} 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-medium"
+                  className="px-3 py-1.5 bg-blue-100 text-blue-700 hover:bg-blue-200 hover:text-blue-800 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-semibold shadow-sm"
                   title="Buka di tab baru (jika diblokir)"
                 >
                   <ExternalLink size={14} />
@@ -324,6 +324,17 @@ export default function App() {
               )}
             </div>
           </div>
+
+          {/* Warning for Google Sites */}
+          {selectedLink && selectedLink.url.includes('sites.google.com') && (
+            <div className="bg-amber-50 border-b border-amber-200 p-3 flex items-start sm:items-center gap-3 text-amber-800 text-xs sm:text-sm z-20 relative">
+              <AlertCircle className="shrink-0 text-amber-500 mt-0.5 sm:mt-0" size={16} />
+              <div className="flex-1">
+                <span className="font-semibold">Pemberitahuan:</span> Google Sites (terutama akun belajar.id) memiliki keamanan yang memblokir tampilan di dalam aplikasi lain (Error 403). 
+                Silakan klik tombol <strong>"Buka di Tab Baru"</strong> di pojok kanan atas.
+              </div>
+            </div>
+          )}
 
           {/* Iframe or Empty State */}
           <div className="flex-1 relative bg-slate-50/30">
