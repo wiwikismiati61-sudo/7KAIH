@@ -9,13 +9,18 @@ import {
   Globe, 
   X,
   AlertCircle,
-  ExternalLink
+  ExternalLink,
+  Menu,
+  Loader2
 } from 'lucide-react';
+import { collection, onSnapshot, addDoc, deleteDoc, doc, query, orderBy, serverTimestamp } from 'firebase/firestore';
+import { db } from './firebase';
 
 type AppLink = {
   id: string;
   title: string;
   url: string;
+  createdAt?: any;
 };
 
 const DEFAULT_LINKS: AppLink[] = [
@@ -30,28 +35,36 @@ export default function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newUrl, setNewUrl] = useState('');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load from localStorage on mount
+  // Load from Firestore on mount
   useEffect(() => {
-    const saved = localStorage.getItem('dashboard_links_v3');
-    if (saved) {
-      try {
-        setLinks(JSON.parse(saved));
-      } catch (e) {
-        setLinks(DEFAULT_LINKS);
+    const q = query(collection(db, 'links'), orderBy('createdAt', 'asc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetchedLinks = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as AppLink[];
+      
+      setLinks(fetchedLinks);
+      
+      if (fetchedLinks.length > 0 && !selectedLink) {
+        setSelectedLink(fetchedLinks[0]);
+      } else if (fetchedLinks.length === 0) {
+        setSelectedLink(null);
       }
-    } else {
-      setLinks(DEFAULT_LINKS);
-    }
+      setIsLoading(false);
+    }, (error) => {
+      console.error("Error fetching links: ", error);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  // Save to localStorage on change
-  useEffect(() => {
-    localStorage.setItem('dashboard_links_v3', JSON.stringify(links));
-  }, [links]);
-
-  const handleAddLink = (e: React.FormEvent) => {
+  const handleAddLink = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim() || !newUrl.trim()) return;
 
@@ -60,23 +73,32 @@ export default function App() {
       formattedUrl = 'https://' + formattedUrl;
     }
 
-    const newLink: AppLink = {
-      id: Date.now().toString(),
-      title: newTitle.trim(),
-      url: formattedUrl,
-    };
-
-    setLinks([...links, newLink]);
-    setNewTitle('');
-    setNewUrl('');
-    setIsModalOpen(false);
+    try {
+      await addDoc(collection(db, 'links'), {
+        title: newTitle.trim(),
+        url: formattedUrl,
+        createdAt: serverTimestamp()
+      });
+      
+      setNewTitle('');
+      setNewUrl('');
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error("Error adding link: ", error);
+      alert("Gagal menambahkan link. Pastikan Anda memiliki koneksi internet.");
+    }
   };
 
-  const handleDelete = (e: React.MouseEvent, id: string) => {
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    setLinks(links.filter(link => link.id !== id));
-    if (selectedLink?.id === id) {
-      setSelectedLink(null);
+    try {
+      await deleteDoc(doc(db, 'links', id));
+      if (selectedLink?.id === id) {
+        setSelectedLink(null);
+      }
+    } catch (error) {
+      console.error("Error deleting link: ", error);
+      alert("Gagal menghapus link.");
     }
   };
 
@@ -94,16 +116,26 @@ export default function App() {
     fileInputRef.current?.click();
   };
 
-  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const importedLinks = JSON.parse(event.target?.result as string);
         if (Array.isArray(importedLinks)) {
-          setLinks(importedLinks);
+          // Add all imported links to Firestore
+          for (const link of importedLinks) {
+            if (link.title && link.url) {
+              await addDoc(collection(db, 'links'), {
+                title: link.title,
+                url: link.url,
+                createdAt: serverTimestamp()
+              });
+            }
+          }
+          alert('Links berhasil di-import ke database!');
         } else {
           alert('Format file tidak valid.');
         }
@@ -124,11 +156,22 @@ export default function App() {
       <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-blue-300/30 blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] rounded-full bg-rose-300/30 blur-[120px] pointer-events-none" />
 
+      {/* Mobile Overlay */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-40 md:hidden"
+          />
+        )}
+      </AnimatePresence>
+
       {/* LEFT SIDEBAR */}
-      <motion.div 
-        initial={{ x: -50, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        className="relative z-10 w-80 flex flex-col bg-white/70 backdrop-blur-2xl border-r border-slate-200/80 shadow-[10px_0_30px_rgba(0,0,0,0.02)]"
+      <div 
+        className={`fixed inset-y-0 left-0 z-50 w-80 flex flex-col bg-white/95 md:bg-white/70 backdrop-blur-2xl border-r border-slate-200/80 shadow-[10px_0_30px_rgba(0,0,0,0.05)] transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         {/* Sidebar Header */}
         <div className="p-6 border-b border-slate-200/80 flex items-center gap-3 bg-white/50">
@@ -145,8 +188,18 @@ export default function App() {
 
         {/* Links List */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-          <AnimatePresence>
-            {links.map((link) => {
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center h-full text-slate-400 space-y-3">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
+              <p className="text-sm font-medium">Memuat data...</p>
+            </div>
+          ) : links.length === 0 ? (
+            <div className="text-center p-8 text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+              Belum ada aplikasi. Tambahkan sekarang!
+            </div>
+          ) : (
+            <AnimatePresence>
+              {links.map((link) => {
               const isSelected = selectedLink?.id === link.id;
               return (
                 <motion.div
@@ -159,7 +212,10 @@ export default function App() {
                   whileTap={{ scale: 0.98 }}
                 >
                   <button
-                    onClick={() => setSelectedLink(link)}
+                    onClick={() => {
+                      setSelectedLink(link);
+                      setIsMobileMenuOpen(false);
+                    }}
                     className={`group relative w-full flex items-center justify-between p-4 rounded-2xl transition-all duration-300 border
                       ${isSelected 
                         ? 'bg-gradient-to-r from-blue-500 to-blue-600 border-transparent shadow-[0_8px_20px_rgba(59,130,246,0.25)] text-white translate-y-[-2px]' 
@@ -188,12 +244,7 @@ export default function App() {
                 </motion.div>
               );
             })}
-          </AnimatePresence>
-          
-          {links.length === 0 && (
-            <div className="text-center p-8 text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
-              Belum ada aplikasi. Tambahkan sekarang!
-            </div>
+            </AnimatePresence>
           )}
         </div>
 
@@ -231,28 +282,34 @@ export default function App() {
             />
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* RIGHT MAIN CONTENT */}
-      <div className="flex-1 p-4 sm:p-6 relative z-10 flex flex-col">
-        <div className="flex-1 bg-white/80 backdrop-blur-xl border border-slate-200/80 rounded-3xl shadow-[0_15px_50px_rgba(0,0,0,0.05)] overflow-hidden relative flex flex-col">
+      <div className="flex-1 p-2 sm:p-4 md:p-6 relative z-10 flex flex-col w-full overflow-hidden">
+        <div className="flex-1 bg-white/80 backdrop-blur-xl border border-slate-200/80 rounded-2xl md:rounded-3xl shadow-[0_15px_50px_rgba(0,0,0,0.05)] overflow-hidden relative flex flex-col">
           
           {/* Top Bar of the Iframe Container */}
-          <div className="h-12 bg-slate-50/80 border-b border-slate-200/80 flex items-center px-4 gap-3">
-            <div className="flex gap-1.5">
+          <div className="h-12 bg-slate-50/80 border-b border-slate-200/80 flex items-center px-2 md:px-4 gap-2 md:gap-3">
+            <button 
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="md:hidden p-2 text-slate-500 hover:bg-slate-200 rounded-lg transition-colors"
+            >
+              <Menu size={20} />
+            </button>
+            <div className="hidden md:flex gap-1.5">
               <div className="w-3 h-3 rounded-full bg-rose-400 shadow-sm"></div>
               <div className="w-3 h-3 rounded-full bg-amber-400 shadow-sm"></div>
               <div className="w-3 h-3 rounded-full bg-emerald-400 shadow-sm"></div>
             </div>
-            <div className="flex-1 flex justify-center">
+            <div className="flex-1 flex justify-center overflow-hidden px-2">
               {selectedLink && (
-                <div className="bg-white px-4 py-1.5 rounded-full text-xs text-slate-500 border border-slate-200 flex items-center gap-2 shadow-sm">
-                  <Globe size={12} className="text-blue-400" />
-                  <span className="truncate max-w-[200px] sm:max-w-[400px]">{selectedLink.url}</span>
+                <div className="bg-white px-3 md:px-4 py-1.5 rounded-full text-[10px] md:text-xs text-slate-500 border border-slate-200 flex items-center gap-2 shadow-sm max-w-full">
+                  <Globe size={12} className="text-blue-400 shrink-0" />
+                  <span className="truncate">{selectedLink.url}</span>
                 </div>
               )}
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-1 md:gap-2 shrink-0">
               {selectedLink && (
                 <a 
                   href={selectedLink.url} 

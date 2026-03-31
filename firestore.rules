@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /links/{linkId} {
+      // For a public dashboard, allow anyone to read, create, and delete links
+      // Note: In a real production app, you'd want authentication to restrict who can edit.
+      allow read, write: if true;
+    }
+  }
+}
