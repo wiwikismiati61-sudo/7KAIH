@@ -8,7 +8,6 @@ import {
   LayoutDashboard, 
   Globe, 
   X,
-  AlertCircle,
   ExternalLink,
   Menu,
   Loader2
@@ -213,6 +212,9 @@ export default function App() {
                 >
                   <button
                     onClick={() => {
+                      if (link.url.includes('sites.google.com')) {
+                        window.open(link.url, '_blank');
+                      }
                       setSelectedLink(link);
                       setIsMobileMenuOpen(false);
                     }}
@@ -325,17 +327,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Warning for Google Sites */}
-          {selectedLink && selectedLink.url.includes('sites.google.com') && (
-            <div className="bg-amber-50 border-b border-amber-200 p-3 flex items-start sm:items-center gap-3 text-amber-800 text-xs sm:text-sm z-20 relative">
-              <AlertCircle className="shrink-0 text-amber-500 mt-0.5 sm:mt-0" size={16} />
-              <div className="flex-1">
-                <span className="font-semibold">Pemberitahuan:</span> Google Sites (terutama akun belajar.id) memiliki keamanan yang memblokir tampilan di dalam aplikasi lain (Error 403). 
-                Silakan klik tombol <strong>"Buka di Tab Baru"</strong> di pojok kanan atas.
-              </div>
-            </div>
-          )}
-
           {/* Iframe or Empty State */}
           <div className="flex-1 relative bg-slate-50/30">
             <AnimatePresence mode="wait">
@@ -368,13 +359,6 @@ export default function App() {
                     Pilih aplikasi dari menu di sebelah kiri untuk membukanya di sini. 
                     Anda juga dapat menambahkan link aplikasi baru.
                   </p>
-                  
-                  <div className="mt-8 p-4 bg-amber-50/50 rounded-2xl border border-amber-100 flex items-start gap-3 max-w-md text-left shadow-sm">
-                    <AlertCircle className="text-amber-500 shrink-0 mt-0.5" size={20} />
-                    <p className="text-xs text-slate-600">
-                      <strong className="text-slate-700">Catatan:</strong> Beberapa situs web memblokir penampilan halamannya di dalam aplikasi lain (iframe). Gunakan tombol <span className="font-semibold">Buka di Tab Baru</span> jika layar kosong.
-                    </p>
-                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
