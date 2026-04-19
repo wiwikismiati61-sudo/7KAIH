@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, 
-  Trash2, 
   Download, 
   Upload, 
   LayoutDashboard, 
@@ -230,17 +229,6 @@ export default function App() {
                       <span className="font-medium truncate">
                         {link.title}
                       </span>
-                    </div>
-                    
-                    <div 
-                      onClick={(e) => handleDelete(e, link.id)}
-                      className={`p-2 rounded-lg transition-colors ${
-                        isSelected 
-                          ? 'hover:bg-blue-400/50 text-blue-200 hover:text-white' 
-                          : 'opacity-0 group-hover:opacity-100 hover:bg-rose-100 text-slate-400 hover:text-rose-500'
-                      }`}
-                    >
-                      <Trash2 size={16} />
                     </div>
                   </button>
                 </motion.div>
